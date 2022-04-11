@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="/static/stats.js"></script>
+</head>
+<body>
+    <h1>
+        Vibe Check!
+    </h1>
+    <br>
+    <h2>
+        {{ if eq .user_response "Good Vibes" }}
+            Sick bro
+        {{ end }}
+        {{ if eq .user_response "Bad Vibes" }}
+            Damn bro that sucks
+        {{ end }}
+    </h2>
+    <h2>Current Stats:</h2>
+    <h3>Good Vibes:</h3>
+    <p id="good_vibes_ticker"></p>
+    <h3>Bad Vibes:</h3>
+    <p id="bad_vibes_ticker"></p>
+</body>
+<script>
+    getStats();
+</script>
+</html>

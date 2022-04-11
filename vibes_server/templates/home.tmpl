@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="/static/home.js"></script>
+</head>
+<body>
+    <h1>
+        Vibe Check!
+    </h1>
+    <br>
+    <h2>
+        How are you?
+    </h2>
+    <ul id="vibeOptions">
+        {{ range $key, $value := .vibes_map }}
+        <li><button id="{{ $key }}">{{ $value }}</button></li>
+        {{ end }}
+    </ul>
+</body>
+<script>
+    homePageSetup();
+</script>
+</html>
