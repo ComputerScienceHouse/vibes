@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+    "strconv"
 
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/gin-gonic/gin"
@@ -34,15 +35,18 @@ func sub(client mqtt.Client, topic string) {
 func update_sign(client mqtt.Client, good_vibes int, bad_vibes int) {
     // TODO: Compare number of good vibes to number of bad vibes
     // Glow each sign based on that number
-    total_vibe_checks := good_vibes + bad_vibes
+//    total_vibe_checks := good_vibes + bad_vibes
 
-    good_glow := 255 * (good_vibes/total_vibe_checks)
-    bad_glow := 255 * (bad_vibes/total_vibe_checks)
+    //good_glow := 255 * (good_vibes/total_vibe_checks)
+    //bad_glow := 255 * (bad_vibes/total_vibe_checks)
 
-    token := client.Publish("vibes/bad", 0, false, bad_glow)
+    good_glow := 5 * good_vibes;
+    bad_glow := 5 * bad_vibes;
+
+    token := client.Publish("vibes/bad", 0, false, strconv.Itoa(bad_glow))
     token.Wait()
 
-    token = client.Publish("vibes/good", 0, false, good_glow)
+    token = client.Publish("vibes/good", 0, false, strconv.Itoa(good_glow))
     token.Wait()
 }
 

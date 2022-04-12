@@ -1,29 +1,11 @@
 /***************************************************
-  Adafruit MQTT Library ESP8266 Example
-
-  Must use ESP8266 Arduino from:
-    https://github.com/esp8266/Arduino
-
-  Works great with Adafruit's Huzzah ESP board:
-  ----> https://www.adafruit.com/product/2471
-
-  Adafruit invests time and resources providing this open source code,
-  please support Adafruit and open-source hardware by purchasing
-  products from Adafruit!
-
-  Written by Tony DiCola for Adafruit Industries.
-  MIT license, all text above must be included in any redistribution
- ****************************************************/
-
-/***************************************************
   CSH Vibes
   Author: Willard Nilges for Computer Science House
   MIT license, all text above must be included in any redistribution
  ****************************************************/
 
 #include <ESP8266WiFi.h>
-#include "Adafruit_MQTT.h"
-#include "Adafruit_MQTT_Client.h"
+#include <PubSubClient.h>
 
 #include "credentials.h"
 
@@ -31,23 +13,11 @@
 #define GOOD_VIBES_SIGN 1
 #define BAD_VIBES_SIGN 3
 
-/************ Global State ******************/
-
-// Create an ESP8266 WiFiClient class to connect to the MQTT server.
 WiFiClient client;
-
-// Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
-Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_USERNAME, AIO_KEY);
+PubSubClient mqtt_client(MQTT_SERVER, MQTT_SERVERPORT, mqtt_callback, wifiClient);
 
 int bad_glow = 10;
 int good_glow = 10;
-
-/****************************** Feeds ***************************************/
-
-Adafruit_MQTT_Subscribe bad_vibes_duty_cycle = Adafruit_MQTT_Subscribe(&mqtt, "vibes/bad");
-Adafruit_MQTT_Subscribe good_vibes_duty_cycle = Adafruit_MQTT_Subscribe(&mqtt, "vibes/good");
-
-/*************************** Sketch Code ************************************/
 
 void bad_vibes_callback(uint32_t duty_cycle) {
   Serial.println("Got bad vibes.");
@@ -79,6 +49,69 @@ void good_vibes_callback(uint32_t duty_cycle) {
   good_glow = (int) duty_cycle;
 }
 
+void mqtt_callback(char* topic, byte* payload, unsigned int len) {
+  
+  String tmp=topic;
+
+  Serial.print("mqtt_callback topic=");
+  Serial.println(tmp);
+
+  payload[length] = '\0'; // Make payload a string by NULL terminating it.
+  int pwmVal = atoi((char *)payload);
+  
+  if(tmp.indexOf("vibes/good")>=0){
+    Serial.println("Good vibes");
+    Serial.println(pwmVal);
+    analogWrite(GOOD_VIBES_SIGN, pwmVal);
+  }
+  
+  if(tmp.indexOf("vibes/bad")>=0){
+    Serial.println("Bad vibes");
+    Serial.println(pwmVal);
+    analogWrite(BAD_VIBES_SIGN, pwmVal);
+  }
+}
+
+
+
+void mqtt_setup() {
+  if (!mqtt_client.connected()) {
+    uint8_t mac[6];
+    WiFi.macAddress(mac);
+
+    String clientName;
+    clientName += "esp8266-";
+    clientName += macToStr(mac);
+
+
+    if (mqtt_client.connect( (char*) clientName.c_str())) {
+      Serial.println("mqtt connected");
+      if (mqtt_client.subscribe("/murilo/esp/rele/on")) {
+        Serial.println("subcribe /murilo/esp/rele/on ok");
+      } else {
+        Serial.println("subcribe /murilo/esp/rele/on fail");
+      }
+      if (mqtt_client.subscribe("/murilo/esp/rele/off")) {
+        Serial.println("subcribe /murilo/esp/rele/off ok");
+      } else {
+        Serial.println("subcribe /murilo/esp/rele/off fail");
+      }
+    } else {
+      Serial.println("mqtt connect fail");
+    }
+
+  } 
+  else {
+    static int contador=0;
+    contador++;
+    String payload="";
+    payload = contador;
+    
+     mqtt_client.publish("/murilo/esp/rele/count",(char*)payload.c_str());
+  }
+}
+
+
 void setup() {
   
   // Set up the LEDs that control the sign
@@ -93,7 +126,7 @@ void setup() {
 
   Serial.begin(115200);
 
-  Serial.println(F("CSH Vibes v0.1"));
+  Serial.println("CSH Vibes v0.1");
 
   // Connect to WiFi access point.
   Serial.println(); Serial.println();
@@ -111,7 +144,8 @@ void setup() {
   Serial.println();
 
   Serial.println("WiFi connected");
-  Serial.println("IP address: "); Serial.println(WiFi.localIP());
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
   
   // If it gets here, then it's probably just about ready to go.
   for (int i = 0; i < 255; i++){
@@ -133,63 +167,46 @@ void setup() {
     analogWrite(1, i);
     delay(10);
   }
+  // Set up the LEDs that control the sign
+  pinMode(3, OUTPUT);
+  pinMode(1, OUTPUT);
 
-  bad_vibes_duty_cycle.setCallback(bad_vibes_callback);
-  good_vibes_duty_cycle.setCallback(good_vibes_callback);
-  
-  // Setup MQTT subscription for feed.
-  mqtt.subscribe(&bad_vibes_duty_cycle);
-  mqtt.subscribe(&good_vibes_duty_cycle);
 }
-
-uint32_t x=0;
 
 void loop() {
 
-  analogWrite(BAD_VIBES_SIGN, 10);
-  analogWrite(GOOD_VIBES_SIGN, 10);
-  
-  // Ensure the connection to the MQTT server is alive (this will make the first
-  // connection and automatically reconnect when disconnected).  See the MQTT_connect
-  // function definition further below.
-  MQTT_connect();
+  mqtt_setup();
+  mqtt_client.loop();
 
-  // this is our 'wait for incoming subscription packets and callback em' busy subloop
-  // try to spend your time here:
-  mqtt.processPackets(700);
-  
-  // ping the server to keep the mqtt connection alive
-  // NOT required if you are publishing once every KEEPALIVE seconds
-  
-  if(! mqtt.ping()) {
-    mqtt.disconnect();
+  Serial.println("Dude what the fuck.");
+  analogWrite(3, 0);
+  analogWrite(1, 0);
+  delay(5000);
+  analogWrite(3, 200);
+  analogWrite(1, 200);
+  delay(5000);
+  analogWrite(3, 0);
+  analogWrite(1, 0);
+  delay(5000);
+
+  int wait_time = 50;
+  for (int i = 0; i < 255; i++){
+    analogWrite(3, i);
+    delay(wait_time);
+   }
+
+  for (int i = 0; i < 255; i++){
+    analogWrite(1, i);
+    delay(wait_time);
   }
-}
-
-// Function to connect and reconnect as necessary to the MQTT server.
-// Should be called in the loop function and it will take care if connecting.
-void MQTT_connect() {
-  int8_t ret;
-
-  // Stop if already connected.
-  if (mqtt.connected()) {
-    return;
+  for (int i = 255; i > 0; i--){
+    analogWrite(3, i);
+    delay(wait_time);
   }
 
-  Serial.print("Connecting to MQTT... ");
-
-  uint8_t retries = 3;
-  while ((ret = mqtt.connect()) != 0) { // connect will return 0 for connected
-       Serial.println(mqtt.connectErrorString(ret));
-       Serial.println("Retrying MQTT connection in 10 seconds...");
-       mqtt.disconnect();
-       delay(10000);  // wait 10 seconds
-       retries--;
-       if (retries == 0) {
-         // basically die and wait for WDT to reset me
-         while (1);
-       }
+  for (int i = 255; i > 0; i--){
+    analogWrite(1, i);
+    delay(wait_time);
   }
-  Serial.println("MQTT Connected!");
   
 }
