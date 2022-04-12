@@ -27,8 +27,9 @@
 
 #include "credentials.h"
 
-#define BAD_VIBES_SIGN 0
+// GPIO Pins
 #define GOOD_VIBES_SIGN 1
+#define BAD_VIBES_SIGN 3
 
 /************ Global State ******************/
 
@@ -38,6 +39,9 @@ WiFiClient client;
 // Setup the MQTT client class by passing in the WiFi client and MQTT server and login details.
 Adafruit_MQTT_Client mqtt(&client, AIO_SERVER, AIO_SERVERPORT, AIO_USERNAME, AIO_USERNAME, AIO_KEY);
 
+int bad_glow = 10;
+int good_glow = 10;
+
 /****************************** Feeds ***************************************/
 
 Adafruit_MQTT_Subscribe bad_vibes_duty_cycle = Adafruit_MQTT_Subscribe(&mqtt, "vibes/bad");
@@ -46,15 +50,33 @@ Adafruit_MQTT_Subscribe good_vibes_duty_cycle = Adafruit_MQTT_Subscribe(&mqtt, "
 /*************************** Sketch Code ************************************/
 
 void bad_vibes_callback(uint32_t duty_cycle) {
+  Serial.println("Got bad vibes.");
+  Serial.println(duty_cycle);
+  analogWrite(BAD_VIBES_SIGN, 0);
+  delay(30);
+  analogWrite(BAD_VIBES_SIGN, 100);
+  delay(30);
+  analogWrite(BAD_VIBES_SIGN, 0);
+  delay(30);
+  analogWrite(BAD_VIBES_SIGN, 100);
   if (duty_cycle > 255)
       duty_cycle = 255;
-  analogWrite(BAD_VIBES_SIGN, duty_cycle);
+  bad_glow = (int) duty_cycle;
 }
 
 void good_vibes_callback(uint32_t duty_cycle) {
+  Serial.println("Got good vibes.");
+  Serial.println(duty_cycle);
+  analogWrite(GOOD_VIBES_SIGN, 0);
+  delay(30);
+  analogWrite(GOOD_VIBES_SIGN, 100);
+  delay(30);
+  analogWrite(GOOD_VIBES_SIGN, 0);
+  delay(30);
+  analogWrite(GOOD_VIBES_SIGN, 100);
   if (duty_cycle > 255)
       duty_cycle = 255;
-  analogWrite(GOOD_VIBES_SIGN, duty_cycle);
+  good_glow = (int) duty_cycle;
 }
 
 void setup() {
@@ -64,8 +86,10 @@ void setup() {
   pinMode(GOOD_VIBES_SIGN, OUTPUT);
 
   //0-255
-  analogWrite(BAD_VIBES_SIGN, 0);
-  analogWrite(GOOD_VIBES_SIGN, 0);
+  analogWrite(BAD_VIBES_SIGN, 50);
+  analogWrite(GOOD_VIBES_SIGN, 50);
+
+  delay(5000);
 
   Serial.begin(115200);
 
@@ -88,6 +112,27 @@ void setup() {
 
   Serial.println("WiFi connected");
   Serial.println("IP address: "); Serial.println(WiFi.localIP());
+  
+  // If it gets here, then it's probably just about ready to go.
+  for (int i = 0; i < 255; i++){
+    analogWrite(3, i);
+    delay(10);
+  }
+
+  for (int i = 0; i < 255; i++){
+    analogWrite(1, i);
+    delay(10);
+   }
+
+  for (int i = 255; i > 0; i--){
+    analogWrite(3, i);
+    delay(10);
+  }
+
+  for (int i = 255; i > 0; i--){
+    analogWrite(1, i);
+    delay(10);
+  }
 
   bad_vibes_duty_cycle.setCallback(bad_vibes_callback);
   good_vibes_duty_cycle.setCallback(good_vibes_callback);
@@ -100,6 +145,10 @@ void setup() {
 uint32_t x=0;
 
 void loop() {
+
+  analogWrite(BAD_VIBES_SIGN, 10);
+  analogWrite(GOOD_VIBES_SIGN, 10);
+  
   // Ensure the connection to the MQTT server is alive (this will make the first
   // connection and automatically reconnect when disconnected).  See the MQTT_connect
   // function definition further below.
@@ -107,7 +156,7 @@ void loop() {
 
   // this is our 'wait for incoming subscription packets and callback em' busy subloop
   // try to spend your time here:
-  mqtt.processPackets(10000);
+  mqtt.processPackets(700);
   
   // ping the server to keep the mqtt connection alive
   // NOT required if you are publishing once every KEEPALIVE seconds
@@ -142,4 +191,5 @@ void MQTT_connect() {
        }
   }
   Serial.println("MQTT Connected!");
+  
 }
